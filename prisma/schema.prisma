@@ -1,0 +1,258 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "./generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+enum MovementType {
+  IN // Stock in
+  OUT // Stock out
+}
+
+// Which side can use the reason type, for example "Sale" is OUT only and "Purchase from Supplier" is IN only
+enum ReasonApplicableTo {
+  IN
+  OUT
+  BOTH
+}
+
+// ============================================
+// USER (Master Data + authentication)
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  phone     String
+  username  String   @unique // Use username for login instead of email
+  password  String // bcrypt hash when implemented for real
+  role      UserRole @default(STAFF)
+  isActive  Boolean  @default(true) // Soft delete instead of hard delete
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations - who did what
+  sessions       Session[]
+  stockMovements StockMovement[]
+  auditLogs      AuditLog[]
+  notifications  Notification[] // Notifications received by this user (only Admin users will have real data)
+
+  @@map("users")
+}
+
+// ============================================
+// SESSION (Custom database session - custom implementation, not an auth library)
+// Cookie stores the raw token (opaque, generated with crypto) and the DB stores only the token hash
+// ============================================
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique // SHA-256 hash of the token in the cookie; never store the raw token in the DB
+  userAgent String? // Reserved for a future "logged in devices" page
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ============================================
+// CATEGORY (Master Data Group A - freely editable)
+// ============================================
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@map("categories")
+}
+
+// ============================================
+// UNIT (Master Data Group B - editable but affects calculations)
+// ============================================
+
+model Unit {
+  id        String   @id @default(cuid())
+  name      String   @unique // Example: "kilogram", "liter", "bottle"
+  symbol    String? // Example: "kg", "L" (optional)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@map("units")
+}
+
+// ============================================
+// REASON TYPE (Master Data Group A - stock in/out reasons)
+// ============================================
+
+model ReasonType {
+  id           String             @id @default(cuid())
+  name         String             @unique // Example: "Sale", "Waste/Expired", "Other"
+  applicableTo ReasonApplicableTo @default(BOTH)
+  requiresNote Boolean            @default(false) // true for "Other" -> note is required
+  isActive     Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  stockMovements StockMovement[]
+
+  @@map("reason_types")
+}
+
+// ============================================
+// PRODUCT (raw materials / products)
+// ============================================
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  sku          String?  @unique // Product code (optional for MVP)
+  categoryId   String
+  unitId       String
+  cost         Decimal  @db.Decimal(10, 2) // Current cost
+  reorderPoint Decimal  @db.Decimal(10, 2) // Minimum reorder point
+  currentStock Decimal  @default(0) @db.Decimal(10, 2) // Current stock balance (auto-calculated from movements)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  category       Category        @relation(fields: [categoryId], references: [id])
+  unit           Unit            @relation(fields: [unitId], references: [id])
+  stockMovements StockMovement[]
+  notifications  Notification[]
+
+  // Prevent inactive products from being mixed into active queries by mistake
+  @@index([categoryId])
+  @@index([unitId])
+  @@index([isActive])
+  @@map("products")
+}
+
+// ============================================
+// STOCK MOVEMENT (stock in/out history - the heart of the system)
+// Any field ending in "Snapshot" is frozen at transaction time and must never be edited later
+// ============================================
+
+model StockMovement {
+  id       String       @id @default(cuid())
+  type     MovementType // IN or OUT
+  quantity Decimal      @db.Decimal(10, 2) // Movement quantity (snapshot by nature)
+
+  // --- Product: Reference + snapshot ---
+  productId            String
+  productNameSnapshot  String // Product name at transaction time
+  categoryNameSnapshot String // Category name at transaction time
+  unitSnapshot         String // Unit at transaction time (for example, "liter") - never depend on the current value
+  costSnapshot         Decimal @db.Decimal(10, 2) // Cost at transaction time
+
+  // --- Reason: Reference + snapshot ---
+  reasonTypeId       String
+  reasonNameSnapshot String // Reason name at transaction time
+
+  // --- User: Reference + snapshot ---
+  userId           String
+  userNameSnapshot String // Full name of the actor (firstName + lastName) at transaction time
+
+  note      String? // Additional note (required if reasonType.requiresNote = true)
+  createdAt DateTime @default(now())
+
+  // Relations (for joins when the source records are still active)
+  product    Product    @relation(fields: [productId], references: [id])
+  reasonType ReasonType @relation(fields: [reasonTypeId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+
+  // No updatedAt on purpose -> transactions must never be edited after saving
+
+  @@index([productId])
+  @@index([userId])
+  @@index([reasonTypeId])
+  @@index([createdAt])
+  @@index([type])
+  @@map("stock_movements")
+}
+
+// ============================================
+// AUDIT LOG (stores history of sensitive master data changes)
+// Used for: Product.unit, Product.cost, Product.reorderPoint, Product.name, Category.name, etc.
+// ============================================
+
+model AuditLog {
+  id         String  @id @default(cuid())
+  entityType String // Example: "Product", "Category", "Unit"
+  entityId   String // ID of the record that was edited
+  fieldName  String // Example: "unit", "cost", "name"
+  oldValue   String // Always stored as a string for flexibility (convert when displaying)
+  newValue   String
+  reason     String? // Reason for the change (required for Group B fields such as unit and cost)
+
+  changedByUserId       String
+  changedByNameSnapshot String // Full name snapshot (firstName + lastName) in case the user is later deleted or deactivated
+
+  createdAt DateTime @default(now())
+
+  changedByUser User @relation(fields: [changedByUserId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================
+// NOTIFICATION (alerts Admin when stock is running low)
+// Created immediately when the "stock out" Server Action drops currentStock below reorderPoint
+// ============================================
+
+model Notification {
+  id        String @id @default(cuid())
+  userId    String // Admin user who receives the notification
+  productId String // Product that is running low
+
+  message String // Summary message, for example "Fresh milk has 5 liters left, below the reorder point (10 liters)"
+  isRead  Boolean @default(false)
+
+  // Snapshot values captured at alert time for historical context
+  stockAtAlert        Decimal @db.Decimal(10, 2)
+  reorderPointAtAlert Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime  @default(now())
+  readAt    DateTime? // Timestamp of when it was read (null = unread)
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([userId, isRead])
+  @@index([productId])
+  @@index([createdAt])
+  @@map("notifications")
+}

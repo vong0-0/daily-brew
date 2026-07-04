@@ -3,15 +3,19 @@
 import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { EyeIcon, EyeOffIcon } from "@hugeicons/core-free-icons";
-import { useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod/v4";
 
+import { signin } from "@/actions/auth.action";
 import { Button } from "@/components/ui/button";
+import { applyActionErrorsToForm, applyZodIssuesToForm } from "@/lib/utils/form-errors";
 import { cn } from "@/lib/utils";
 import { loginSchema } from "@/lib/validations/auth.schema";
+import { redirect } from "next/navigation";
+
+type LoginValues = z.input<typeof loginSchema>;
 
 export function LoginForm() {
-  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const {
@@ -20,36 +24,31 @@ export function LoginForm() {
     setError,
     clearErrors,
     formState: { errors, isSubmitting },
-  } = useForm<z.input<typeof loginSchema>>({
+  } = useForm<LoginValues>({
     defaultValues: {
-      email: "",
+      username: "",
       password: "",
-      rememberMe: true,
     },
-    mode: "onTouched",
   });
 
-  const onSubmit = (values: z.input<typeof loginSchema>) => {
+  const onSubmit: SubmitHandler<LoginValues> = async (values) => {
     clearErrors();
 
     const parsed = loginSchema.safeParse(values);
 
     if (!parsed.success) {
-      for (const issue of parsed.error.issues) {
-        const fieldName = issue.path[0];
-
-        if (fieldName === "email" || fieldName === "password" || fieldName === "rememberMe") {
-          setError(fieldName, {
-            type: "manual",
-            message: issue.message,
-          });
-        }
-      }
-
+      applyZodIssuesToForm(parsed.error.issues, setError);
       return;
     }
 
-    setSubmittedEmail(parsed.data.email);
+    const result = await signin(parsed.data);
+
+    if (!result.success) {
+      applyActionErrorsToForm(result.error, setError);
+      return;
+    }
+
+    redirect("/dashboard")
   };
 
   return (
@@ -62,33 +61,32 @@ export function LoginForm() {
         </p>
       </div>
 
-      {submittedEmail ? (
-        <div className="mb-5 rounded-sm border border-status-ok/40 bg-status-ok/10 px-3 py-2 text-sm text-text-primary">
-          Validation passed for <span className="font-medium">{submittedEmail}</span>. Connect this form to NextAuth
-          credentials next.
+      {errors.root?.message ? (
+        <div className="mb-5 rounded-sm border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-sm text-text-primary">
+          {errors.root.message}
         </div>
       ) : null}
 
       <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="email" className="text-sm font-medium text-text-primary">
-            Email
+          <label htmlFor="username" className="text-sm font-medium text-text-primary">
+            Username
           </label>
           <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            aria-invalid={Boolean(errors.email)}
+            id="username"
+            type="text"
+            autoComplete="username"
+            aria-invalid={Boolean(errors.username)}
             className={cn(
               "h-10 rounded-sm border bg-bg-base px-3 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70",
-              errors.email
+              errors.username
                 ? "border-status-warning focus:border-status-warning"
                 : "border-border focus:border-accent"
             )}
-            placeholder="name@coffeehouse.com"
-            {...register("email")}
+            placeholder="your.username"
+            {...register("username")}
           />
-          {errors.email ? <p className="text-sm text-status-warning">{errors.email.message}</p> : null}
+          {errors.username ? <p className="text-sm text-status-warning">{errors.username.message}</p> : null}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -122,15 +120,6 @@ export function LoginForm() {
           </div>
           {errors.password ? <p className="text-sm text-status-warning">{errors.password.message}</p> : null}
         </div>
-
-        <label className="flex items-center gap-2 text-sm text-text-secondary">
-          <input
-            type="checkbox"
-            className="size-4 rounded border-border bg-bg-base text-accent focus:ring-0"
-            {...register("rememberMe")}
-          />
-          Remember me on this device
-        </label>
 
         <Button className="mt-1 w-full py-2" type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Signing in..." : "Sign in"}
