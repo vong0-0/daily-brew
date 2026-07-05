@@ -1,6 +1,7 @@
 "use server";
 
 import { comparePassword } from "@/lib/password";
+import { createSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { loginSchema } from "@/lib/validations/auth.schema";
 import { z } from "zod";
@@ -39,7 +40,6 @@ export async function signin(
     }
 
     const isPasswordValid = await comparePassword(password, user.password);
-    console.log(isPasswordValid)
 
     if (!isPasswordValid) {
       return {
@@ -47,6 +47,8 @@ export async function signin(
         error: "Invalid username or password",
       };
     }
+
+    await createSession(user.id);
 
     return {
       success: true,

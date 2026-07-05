@@ -11,12 +11,13 @@ import { Button } from "@/components/ui/button";
 import { applyActionErrorsToForm, applyZodIssuesToForm } from "@/lib/utils/form-errors";
 import { cn } from "@/lib/utils";
 import { loginSchema } from "@/lib/validations/auth.schema";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 type LoginValues = z.input<typeof loginSchema>;
 
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
 
   const {
     register,
@@ -48,7 +49,7 @@ export function LoginForm() {
       return;
     }
 
-    redirect("/dashboard")
+    router.replace("/dashboard");
   };
 
   return (
