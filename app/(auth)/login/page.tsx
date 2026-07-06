@@ -1,6 +1,14 @@
+import { redirect } from "next/navigation";
+import { getCurrentSession } from "@/lib/session";
 import { LoginForm } from "@/components/auth/login-form";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const session = await getCurrentSession();
+  
+  if (session) {
+    redirect("/dashboard");
+  }
+
   return (
     <main className="min-h-screen bg-bg-base text-text-primary">
       <div className="grid min-h-screen lg:grid-cols-2">
