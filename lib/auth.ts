@@ -1,6 +1,6 @@
 import "server-only";
 
-import { forbidden, redirect } from "next/navigation";
+import { forbidden } from "next/navigation";
 import { UserRole } from "@/prisma/generated/prisma/client";
 
 import {
