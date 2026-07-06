@@ -1,10 +1,11 @@
 "use server";
 
 import { comparePassword } from "@/lib/password";
-import { createSession } from "@/lib/session";
+import { createSession, deleteCurrentSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { loginSchema } from "@/lib/validations/auth.schema";
 import { z } from "zod";
+import { redirect } from "next/navigation";
 
 export async function signin(
   data: z.input<typeof loginSchema>
@@ -60,4 +61,9 @@ export async function signin(
       error: "Something went wrong try again later",
     };
   }
+}
+
+export async function signout(): Promise<void> {
+  await deleteCurrentSession();
+  redirect("/login");
 }

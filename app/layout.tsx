@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ibmPlexMono, inter } from "./fonts";
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: "Daily Brew",
   description: "Coffee shop inventory management system",

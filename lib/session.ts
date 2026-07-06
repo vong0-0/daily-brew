@@ -156,7 +156,7 @@ export async function refreshedSession(rawToken: string) {
 
 export async function deleteSession(tokenHash: string) {
   if (!tokenHash) {
-    return null
+    return { count: 0 }
   }
 
   await prisma.session.deleteMany({
@@ -171,28 +171,12 @@ export async function deleteCurrentSession() {
   const sessionTokenRaw = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
   if (!sessionTokenRaw) {
-    return null;
+    return;
   }
 
   const tokenHash = hashToken(sessionTokenRaw);
 
-  const session = await getSessionByTokenHash(tokenHash);
-
-  if (!session) {
-    return null;
-  }
-
   await deleteSession(tokenHash);
   await clearSessionCookie();
 
-  return session;
-
-}
-
-export async function deleteUserSession(userId: string) {
-  await prisma.session.deleteMany({
-    where: {
-      userId,
-    },
-  });
 }
