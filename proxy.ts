@@ -1,6 +1,7 @@
+import "server-only"
+
 import { type NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE_NAME, SESSION_DURATION_MS, clearSessionCookie, deleteSession, getSessionByTokenHash, updateSessionExpiry } from "./lib/session";
-import { hashToken } from "./lib/token";
+import { SESSION_COOKIE_NAME, SESSION_DURATION_MS } from "./lib/session";
 
 function createLoginUrl(request: NextRequest) {
   const loginUrl = new URL("/login", request.url);
@@ -24,32 +25,14 @@ function attachSessionToNextResponse(response: NextResponse, sessionRawToken: st
 
 export async function proxy(request: NextRequest) {
   const sessionRawToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  console.log(createLoginUrl(request))
+
   if (!sessionRawToken) {
-    return NextResponse.redirect(createLoginUrl(request))
-  }
-
-  const tokenHash = hashToken(sessionRawToken)
-  const session = await getSessionByTokenHash(tokenHash)
-
-  if (!session) {
     const response = NextResponse.redirect(createLoginUrl(request))
-    await deleteSession(tokenHash);
-    await clearSessionCookie();
-    return response;
-  }
-
-  const refreshedSession = await updateSessionExpiry(session.tokenHash);
-
-  if (!refreshedSession) {
-    const response = NextResponse.redirect(createLoginUrl(request))
-    await deleteSession(tokenHash);
-    await clearSessionCookie();
     return response;
   }
 
   const response = NextResponse.next();
-  attachSessionToNextResponse(response, sessionRawToken)
+  attachSessionToNextResponse(response, sessionRawToken);
 
   return response
 }

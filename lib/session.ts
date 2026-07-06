@@ -9,8 +9,8 @@ export const SESSION_COOKIE_NAME = "daily-brew-session";
 export const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7; // 7 days
 export const SESSION_DURATION_MS = SESSION_DURATION_SECONDS * 1000;
 
-type SessionUser = Pick<User, "id" | "username" | "firstName" | "lastName">;
-type ActiveSession = SessionRecord & { user: SessionUser };
+export type SessionUser = Pick<User, "id" | "username" | "firstName" | "lastName" | "role">;
+export type ActiveSession = SessionRecord & { user: SessionUser };
 
 function getSessionExpiresAt(referenceDate = new Date()) {
   return new Date(referenceDate.getTime() + SESSION_DURATION_MS);
@@ -58,6 +58,7 @@ export async function getSessionByTokenHash(tokenHash: string): Promise<ActiveSe
           username: true,
           firstName: true,
           lastName: true,
+          role: true,
         },
       },
     },
@@ -111,36 +112,6 @@ async function readSessionFromCookie(): Promise<ActiveSession | null> {
 
 export const getCurrentSession = cache(readSessionFromCookie);
 
-export const verfiySession = cache(async function verfiySession() {
-  const rawToken = await getRawSessionTokenFromCookie();
-
-  if (!rawToken) {
-    return null;
-  }
-
-  const tokenHash = hashToken(rawToken);
-  const session = await getSessionByTokenHash(tokenHash);
-
-  if (!session) {
-    await deleteSession(tokenHash);
-    await clearSessionCookie();
-
-    return null;
-  }
-
-  const refreshedSession = await updateSessionExpiry(tokenHash);
-
-  if (!refreshedSession) {
-    await deleteSession(tokenHash);
-    await clearSessionCookie();
-    return null;
-  }
-
-  await setSessionCookie(rawToken, getSessionExpiresAt());
-
-  return refreshedSession;
-});
-
 export async function createSession(userId: string) {
   const rawToken = generateRawHash();
   const tokenHash = hashToken(rawToken);
@@ -159,6 +130,7 @@ export async function createSession(userId: string) {
           username: true,
           firstName: true,
           lastName: true,
+          role: true,
         },
       },
     },
