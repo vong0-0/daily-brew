@@ -152,3 +152,9 @@
     @apply font-sans;
   }
 }
+
+@layer components {
+  .content-shell {
+    @apply px-4 py-2 w-full max-w-[2000px] mx-auto flex flex-col gap-4;
+  }
+}

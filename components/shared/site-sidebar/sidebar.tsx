@@ -1,8 +1,24 @@
+import { Suspense } from "react";
 import { Coffee, List, Plus, Minus, History as HistoryIcon, LayoutDashboard, ChartBarStacked, Boxes, BookText, Users, Cable } from "lucide-react";
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter } from "../../ui/sidebar";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "../../ui/sidebar";
 import Link from "next/link";
 import { NavUser } from "./nav-user";
+import {
+  SiteSidebarAdminGroupSkeleton,
+  SiteSidebarNavUserSkeleton,
+} from "../skeletons/site-sidebar-skeletons";
 import { getCurrentSessionUser, isAdmin } from "@/lib/auth";
+import { slowNetwork } from "@/lib/utils/slow-network";
 
 const GENERAL = {
   group_info: {
@@ -30,14 +46,54 @@ const ADMIN = {
   ]
 }
 
-export async function SiteSidebar() {
-  const sessionUser = await getCurrentSessionUser()
-  const adminUser = await isAdmin()
+async function AdminGroup() {
+  await slowNetwork();
+  const adminUser = await isAdmin();
+
+  if (!adminUser) {
+    return null;
+  }
+
   return (
-    <Sidebar>
+    <SidebarGroup className="p-2">
+      <SidebarGroupLabel>{ADMIN.group_info.group_label}</SidebarGroupLabel>
+        <SidebarMenu className="gap-1">
+          {ADMIN.items.map((item) => (
+            <SidebarMenuItem key={item.href}>
+              <SidebarMenuButton
+                className="hover:bg-bg-base transition-all duration-300"
+                asChild
+                tooltip={item.label}
+              >
+                <Link href={item.href} className="flex items-center gap-2">
+                  <item.icon className="size-4 shrink-0" />
+                  <span className="truncate text-sm">{item.label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+    </SidebarGroup>
+  );
+}
+
+async function UserSection() {
+  await slowNetwork();
+  const sessionUser = await getCurrentSessionUser();
+
+  if (!sessionUser) {
+    return null;
+  }
+
+  return <NavUser user={sessionUser} />;
+}
+
+export function SiteSidebar() {
+  return (
+    <Sidebar side={"left"} variant={"sidebar"} collapsible={"icon"}>
       <SidebarHeader>
         <SidebarMenu>
-          <SidebarMenuItem className="flex items-center gap-2 p-2">
+          <SidebarMenuItem className="flex items-center gap-2 p-0 group-data-[state=expanded]:p-2 transition-all duration-300">
             <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
               <Coffee className="size-4" />
             </div>
@@ -57,6 +113,7 @@ export async function SiteSidebar() {
                 <SidebarMenuButton
                   className="hover:bg-bg-base transition-all duration-300"
                   asChild
+                  tooltip={item.label}
                 >
                   <Link href={item.href} className="flex items-center gap-2">
                     <item.icon className="size-4 shrink-0" />
@@ -67,32 +124,15 @@ export async function SiteSidebar() {
             ))}
           </SidebarMenu>
         </SidebarGroup>
-        {adminUser && (
-          <SidebarGroup className="p-2">
-            <SidebarGroupLabel>{ADMIN.group_info.group_label}</SidebarGroupLabel>
-            <SidebarMenu className="gap-1">
-              {ADMIN.items.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    className="hover:bg-bg-base transition-all duration-300"
-                    asChild
-                  >
-                    <Link href={item.href} className="flex items-center gap-2">
-                      <item.icon className="size-4 shrink-0" />
-                      <span className="truncate text-sm">{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroup>
-        )}
+        <Suspense fallback={<SiteSidebarAdminGroupSkeleton />}>
+          <AdminGroup />
+        </Suspense>
       </SidebarContent>
-      {sessionUser && (
-        <SidebarFooter>
-          <NavUser user={sessionUser} />
-        </SidebarFooter>
-      )}
+      <SidebarFooter>
+        <Suspense fallback={<SiteSidebarNavUserSkeleton />}>
+          <UserSection />
+        </Suspense>
+      </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
