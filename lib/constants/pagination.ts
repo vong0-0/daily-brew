@@ -1,0 +1,1 @@
+export const GLOBAL_DEFAULT_PAGINATION_LIMIT = 20;
