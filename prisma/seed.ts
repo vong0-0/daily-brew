@@ -1,16 +1,25 @@
 import "dotenv/config";
 
-import { randomUUID } from "node:crypto";
+import { subDays } from "date-fns";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
 
 import { hashPassword } from "@/lib/password";
-import { PrismaClient, UserRole } from "./generated/prisma/client";
+import {
+  Prisma,
+  PrismaClient,
+  ReasonApplicableTo,
+  UserRole,
+} from "./generated/prisma/client";
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
     connectionString: process.env.DATABASE_URL,
   }),
 });
+
+const TIME_ZONE = "Asia/Bangkok";
+const STOCK_MOVEMENT_SEED_DAYS = 30;
 
 type CategorySeed = {
   name: string;
@@ -22,6 +31,30 @@ type UnitSeed = {
 };
 
 type ProductSeed = {
+  sku: string;
+  name: string;
+  categoryName: string;
+  unitName: string;
+  cost: string;
+  reorderPoint: string;
+  currentStock: string;
+};
+
+type ReasonTypeSeed = {
+  name: string;
+  applicableTo: ReasonApplicableTo;
+  requiresNote: boolean;
+};
+
+type SeededUser = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+};
+
+type SeededProduct = {
+  id: string;
   sku: string;
   name: string;
   categoryName: string;
@@ -52,6 +85,39 @@ const unitSeeds: UnitSeed[] = [
   { name: "pack" },
   { name: "bag" },
   { name: "carton" },
+];
+
+const reasonTypeSeeds: ReasonTypeSeed[] = [
+  {
+    name: "Purchase from Supplier",
+    applicableTo: ReasonApplicableTo.IN,
+    requiresNote: false,
+  },
+  {
+    name: "Transfer In from Branch",
+    applicableTo: ReasonApplicableTo.IN,
+    requiresNote: false,
+  },
+  {
+    name: "Barista Consumption",
+    applicableTo: ReasonApplicableTo.OUT,
+    requiresNote: false,
+  },
+  {
+    name: "Waste / Expired",
+    applicableTo: ReasonApplicableTo.OUT,
+    requiresNote: true,
+  },
+  {
+    name: "Sampling / Staff Use",
+    applicableTo: ReasonApplicableTo.OUT,
+    requiresNote: true,
+  },
+  {
+    name: "Inventory Count Correction",
+    applicableTo: ReasonApplicableTo.BOTH,
+    requiresNote: true,
+  },
 ];
 
 const productSeeds: ProductSeed[] = [
@@ -237,164 +303,318 @@ const productSeeds: ProductSeed[] = [
   },
 ];
 
-async function seedUser(params: {
-  firstName: string;
-  lastName: string;
-  phone: string;
-  username: string;
-  password: string;
-  role: UserRole;
+function getSeedDayKey(anchorDate: Date, daysAgo: number) {
+  return formatInTimeZone(
+    subDays(anchorDate, daysAgo),
+    TIME_ZONE,
+    "yyyy-MM-dd"
+  );
+}
+
+function getSeedDateTime(anchorDate: Date, daysAgo: number, time: string) {
+  return fromZonedTime(`${getSeedDayKey(anchorDate, daysAgo)}T${time}`, TIME_ZONE);
+}
+
+function decimalString(value: number) {
+  return value.toFixed(2);
+}
+
+async function seedUser(
+  tx: Prisma.TransactionClient,
+  params: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    username: string;
+    password: string;
+    role: UserRole;
+  }
+) {
+  return tx.user.upsert({
+    where: {
+      username: params.username,
+    },
+    create: {
+      firstName: params.firstName,
+      lastName: params.lastName,
+      phone: params.phone,
+      username: params.username,
+      password: params.password,
+      role: params.role,
+      isActive: true,
+    },
+    update: {
+      firstName: params.firstName,
+      lastName: params.lastName,
+      phone: params.phone,
+      password: params.password,
+      role: params.role,
+      isActive: true,
+    },
+  });
+}
+
+async function seedCategory(tx: Prisma.TransactionClient, params: CategorySeed) {
+  return tx.category.upsert({
+    where: {
+      name: params.name,
+    },
+    create: {
+      name: params.name,
+    },
+    update: {
+      name: params.name,
+      isActive: true,
+    },
+  });
+}
+
+async function seedUnit(tx: Prisma.TransactionClient, params: UnitSeed) {
+  return tx.unit.upsert({
+    where: {
+      name: params.name,
+    },
+    create: {
+      name: params.name,
+      symbol: params.symbol,
+    },
+    update: {
+      name: params.name,
+      symbol: params.symbol,
+      isActive: true,
+    },
+  });
+}
+
+async function seedReasonType(
+  tx: Prisma.TransactionClient,
+  params: ReasonTypeSeed
+) {
+  return tx.reasonType.upsert({
+    where: {
+      name: params.name,
+    },
+    create: {
+      name: params.name,
+      applicableTo: params.applicableTo,
+      requiresNote: params.requiresNote,
+    },
+    update: {
+      name: params.name,
+      applicableTo: params.applicableTo,
+      requiresNote: params.requiresNote,
+      isActive: true,
+    },
+  });
+}
+
+async function seedProduct(
+  tx: Prisma.TransactionClient,
+  params: ProductSeed,
+  categoryId: string,
+  unitId: string
+) {
+  return tx.product.upsert({
+    where: {
+      sku: params.sku,
+    },
+    create: {
+      sku: params.sku,
+      name: params.name,
+      categoryId,
+      unitId,
+      cost: params.cost,
+      reorderPoint: params.reorderPoint,
+      currentStock: params.currentStock,
+    },
+    update: {
+      name: params.name,
+      categoryId,
+      unitId,
+      cost: params.cost,
+      reorderPoint: params.reorderPoint,
+      currentStock: params.currentStock,
+      isActive: true,
+    },
+  });
+}
+
+function buildStockMovementRows(params: {
+  anchorDate: Date;
+  products: SeededProduct[];
+  reasonTypes: Array<{
+    id: string;
+    name: string;
+    applicableTo: ReasonApplicableTo;
+    requiresNote: boolean;
+  }>;
+  adminUser: SeededUser;
+  staffUser: SeededUser;
 }) {
-  await prisma.$executeRaw`
-    INSERT INTO "users" (
-      "id",
-      "firstName",
-      "lastName",
-      "phone",
-      "username",
-      "password",
-      "role",
-      "isActive",
-      "createdAt",
-      "updatedAt"
-    )
-    VALUES (
-      ${randomUUID()},
-      ${params.firstName},
-      ${params.lastName},
-      ${params.phone},
-      ${params.username},
-      ${params.password},
-      ${params.role},
-      true,
-      NOW(),
-      NOW()
-    )
-    ON CONFLICT ("username")
-    DO UPDATE SET
-      "firstName" = EXCLUDED."firstName",
-      "lastName" = EXCLUDED."lastName",
-      "phone" = EXCLUDED."phone",
-      "password" = EXCLUDED."password",
-      "role" = EXCLUDED."role",
-      "isActive" = TRUE,
-      "updatedAt" = NOW();
-  `;
-}
+  const inboundReasons = params.reasonTypes.filter(
+    (reasonType) =>
+      reasonType.applicableTo === ReasonApplicableTo.IN ||
+      reasonType.applicableTo === ReasonApplicableTo.BOTH
+  );
+  const outboundReasons = params.reasonTypes.filter(
+    (reasonType) =>
+      reasonType.applicableTo === ReasonApplicableTo.OUT ||
+      reasonType.applicableTo === ReasonApplicableTo.BOTH
+  );
 
-async function seedCategory(params: CategorySeed) {
-  return await prisma.category.upsert({
-    where: {
-      name: params.name,
-    },
-    create: {
-      name: params.name,
-    },
-    update: {
-      name: params.name,
-      isActive: true,
-    },
-  });
-}
+  const rows: Prisma.StockMovementCreateManyInput[] = [];
 
-async function seedUnit(params: UnitSeed) {
-  return await prisma.unit.upsert({
-    where: {
-      name: params.name,
-    },
-    create: {
-      name: params.name,
-      symbol: params.symbol,
-    },
-    update: {
-      name: params.name,
-      symbol: params.symbol,
-      isActive: true,
-    },
-  });
-}
+  for (let dayIndex = 0; dayIndex < STOCK_MOVEMENT_SEED_DAYS; dayIndex++) {
+    const daysAgo = STOCK_MOVEMENT_SEED_DAYS - 1 - dayIndex;
+    const dateKey = getSeedDayKey(params.anchorDate, daysAgo);
+    const inProduct = params.products[dayIndex % params.products.length];
+    const outProduct =
+      params.products[(dayIndex * 3 + 5) % params.products.length] ?? inProduct;
 
-async function seedProduct(params: ProductSeed, categoryId: string, unitId: string) {
-  return await prisma.product.upsert({
-    where: {
-      sku: params.sku,
-    },
-    create: {
-      sku: params.sku,
-      name: params.name,
-      categoryId,
-      unitId,
-      cost: params.cost,
-      reorderPoint: params.reorderPoint,
-      currentStock: params.currentStock,
-    },
-    update: {
-      name: params.name,
-      categoryId,
-      unitId,
-      cost: params.cost,
-      reorderPoint: params.reorderPoint,
-      currentStock: params.currentStock,
-      isActive: true,
-    },
-  });
+    const inboundReason = inboundReasons[dayIndex % inboundReasons.length];
+    const outboundReason = outboundReasons[dayIndex % outboundReasons.length];
+
+    rows.push({
+      type: "IN",
+      quantity: decimalString(2 + (dayIndex % 4)),
+      productId: inProduct.id,
+      productNameSnapshot: inProduct.name,
+      categoryNameSnapshot: inProduct.categoryName,
+      unitSnapshot: inProduct.unitName,
+      costSnapshot: inProduct.cost,
+      reasonTypeId: inboundReason.id,
+      reasonNameSnapshot: inboundReason.name,
+      userId: params.adminUser.id,
+      userNameSnapshot: `${params.adminUser.firstName} ${params.adminUser.lastName}`,
+      note: null,
+      createdAt: getSeedDateTime(params.anchorDate, daysAgo, "08:30:00"),
+    });
+
+    rows.push({
+      type: "OUT",
+      quantity: decimalString(1 + (dayIndex % 3)),
+      productId: outProduct.id,
+      productNameSnapshot: outProduct.name,
+      categoryNameSnapshot: outProduct.categoryName,
+      unitSnapshot: outProduct.unitName,
+      costSnapshot: outProduct.cost,
+      reasonTypeId: outboundReason.id,
+      reasonNameSnapshot: outboundReason.name,
+      userId: params.staffUser.id,
+      userNameSnapshot: `${params.staffUser.firstName} ${params.staffUser.lastName}`,
+      note: outboundReason.requiresNote
+        ? `Seeded ${outboundReason.name.toLowerCase()} entry for ${dateKey}`
+        : null,
+      createdAt: getSeedDateTime(params.anchorDate, daysAgo, "17:15:00"),
+    });
+  }
+
+  return rows;
 }
 
 async function main() {
   const adminPassword = await hashPassword("Admin1234!");
   const staffPassword = await hashPassword("Staff1234!");
+  const seedAnchorDate = new Date();
 
-  const seededCategories = await Promise.all(
-    categorySeeds.map((category) => seedCategory(category))
-  );
-  const seededUnits = await Promise.all(unitSeeds.map((unit) => seedUnit(unit)));
+  await prisma.$transaction(async (tx) => {
+    const seededCategories = await Promise.all(
+      categorySeeds.map((category) => seedCategory(tx, category))
+    );
+    const seededUnits = await Promise.all(
+      unitSeeds.map((unit) => seedUnit(tx, unit))
+    );
+    const seededReasonTypes = await Promise.all(
+      reasonTypeSeeds.map((reasonType) => seedReasonType(tx, reasonType))
+    );
 
-  const categoryByName = new Map(
-    seededCategories.map((category) => [category.name, category] as const)
-  );
-  const unitByName = new Map(seededUnits.map((unit) => [unit.name, unit] as const));
+    const adminUser = await seedUser(tx, {
+      firstName: "System",
+      lastName: "Admin",
+      phone: "0000000000",
+      username: "admin",
+      password: adminPassword,
+      role: UserRole.ADMIN,
+    });
 
-  for (const product of productSeeds) {
-    const category = categoryByName.get(product.categoryName);
-    const unit = unitByName.get(product.unitName);
+    const staffUser = await seedUser(tx, {
+      firstName: "Floor",
+      lastName: "Staff",
+      phone: "0000000001",
+      username: "staff",
+      password: staffPassword,
+      role: UserRole.STAFF,
+    });
 
-    if (!category) {
-      throw new Error(`Missing category seed: ${product.categoryName}`);
+    const categoryByName = new Map(
+      seededCategories.map((category) => [category.name, category] as const)
+    );
+    const unitByName = new Map(
+      seededUnits.map((unit) => [unit.name, unit] as const)
+    );
+
+    const seededProducts: SeededProduct[] = [];
+
+    for (const product of productSeeds) {
+      const category = categoryByName.get(product.categoryName);
+      const unit = unitByName.get(product.unitName);
+
+      if (!category) {
+        throw new Error(`Missing category seed: ${product.categoryName}`);
+      }
+
+      if (!unit) {
+        throw new Error(`Missing unit seed: ${product.unitName}`);
+      }
+
+      const seededProduct = await seedProduct(tx, product, category.id, unit.id);
+      seededProducts.push({
+        id: seededProduct.id,
+        sku: seededProduct.sku ?? product.sku,
+        name: seededProduct.name,
+        categoryName: product.categoryName,
+        unitName: product.unitName,
+        cost: seededProduct.cost.toString(),
+        reorderPoint: seededProduct.reorderPoint.toString(),
+        currentStock: seededProduct.currentStock.toString(),
+      });
     }
 
-    if (!unit) {
-      throw new Error(`Missing unit seed: ${product.unitName}`);
-    }
+    await tx.stockMovement.deleteMany();
 
-    await seedProduct(product, category.id, unit.id);
-  }
+    const stockMovementRows = buildStockMovementRows({
+      anchorDate: seedAnchorDate,
+      products: seededProducts,
+      reasonTypes: seededReasonTypes,
+      adminUser: {
+        id: adminUser.id,
+        firstName: adminUser.firstName,
+        lastName: adminUser.lastName,
+        username: adminUser.username,
+      },
+      staffUser: {
+        id: staffUser.id,
+        firstName: staffUser.firstName,
+        lastName: staffUser.lastName,
+        username: staffUser.username,
+      },
+    });
 
-  await seedUser({
-    firstName: "System",
-    lastName: "Admin",
-    phone: "0000000000",
-    username: "admin",
-    password: adminPassword,
-    role: UserRole.ADMIN,
+    await tx.stockMovement.createMany({
+      data: stockMovementRows,
+    });
+
+    console.log(`Seeded ${seededCategories.length} categories.`);
+    console.log(`Seeded ${seededUnits.length} units.`);
+    console.log(`Seeded ${seededReasonTypes.length} reason types.`);
+    console.log(`Seeded ${seededProducts.length} coffee shop products.`);
+    console.log(`Seeded ${stockMovementRows.length} stock movements.`);
+    console.log("Seeded admin and staff users.");
+    console.log("Admin username: admin");
+    console.log("Admin password: Admin1234!");
+    console.log("Staff username: staff");
+    console.log("Staff password: Staff1234!");
   });
-
-  await seedUser({
-    firstName: "Floor",
-    lastName: "Staff",
-    phone: "0000000001",
-    username: "staff",
-    password: staffPassword,
-    role: UserRole.STAFF,
-  });
-
-  console.log(`Seeded ${seededCategories.length} categories.`);
-  console.log(`Seeded ${seededUnits.length} units.`);
-  console.log(`Seeded ${productSeeds.length} coffee shop products.`);
-  console.log("Seeded admin and staff users.");
-  console.log("Admin username: admin");
-  console.log("Admin password: Admin1234!");
-  console.log("Staff username: staff");
-  console.log("Staff password: Staff1234!");
 }
 
 main()
