@@ -1,28 +1,24 @@
+import type { PaginationMeta } from "./pagination"
+
 export type StockSummary = {
   totalStockValue: number,
   totalProductCount: number
 }
-
-export type PaginationMeta = {
-  page: number,
-  limit: number,
-  totalCount: number,
-  totalPages: number,
-  hasNextPage: boolean,
-  hasPreviousPage: boolean,
-}
-
-export type LowStockProduct = {
+export type Product = {
   id: string,
   name: string,
   sku: string | null,
+  cost: string,
   currentStock: string,
   reorderPoint: string,
   categoryName: string,
   unitName: string,
+  isActive: boolean,
+  createAt: Date,
+  updateAt: Date,
 }
 
-export type LowStockProductList = {
-  items: LowStockProduct[],
+export type ProductList = {
+  items: Product[],
   pagination: PaginationMeta,
 }

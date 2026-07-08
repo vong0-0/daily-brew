@@ -14,7 +14,7 @@ export default async function ProtectedLayout({
   return (
     <SidebarProvider>
       <SiteSidebar />
-      <SidebarInset className="bg-bg-base text-text-primary">
+      <SidebarInset className="min-w-0 bg-bg-base text-text-primary">
         {children}
       </SidebarInset>
     </SidebarProvider>

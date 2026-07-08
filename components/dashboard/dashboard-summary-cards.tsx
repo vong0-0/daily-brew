@@ -1,13 +1,8 @@
 import { AlertTriangle, Boxes, DollarSign, Layers3 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { formatNumber, formatUSD } from "@/lib/utils/currency";
 import { getLowStockProductCount, getStockSummary } from "@/lib/data/product";
-
-type DashboardSummaryCardsProps = {
-  totalProductCount: number;
-  totalStockValue: number;
-  lowStockProductCount: number;
-};
 
 type SummaryCard = {
   label: string;
@@ -17,13 +12,6 @@ type SummaryCard = {
   accentClassName: string;
 };
 
-const usdFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 2,
-});
-
-const numberFormatter = new Intl.NumberFormat("en-US");
 
 export async function DashboardSummaryCards() {
   const [stockSummary, lowStockProductCount] = await Promise.all([
@@ -34,21 +22,21 @@ export async function DashboardSummaryCards() {
   const cards: SummaryCard[] = [
     {
       label: "Active Products",
-      value: numberFormatter.format(stockSummary.totalProductCount),
+      value: formatNumber(stockSummary.totalProductCount),
       description: "Products currently active in the catalog",
       icon: Boxes,
       accentClassName: "border-l-status-ok",
     },
     {
       label: "Stock Value",
-      value: usdFormatter.format(stockSummary.totalStockValue),
+      value: formatUSD(stockSummary.totalStockValue),
       description: "Estimated value of active stock on hand",
       icon: DollarSign,
       accentClassName: "border-l-accent",
     },
     {
       label: "Low Stock Items",
-      value: numberFormatter.format(lowStockProductCount),
+      value: formatNumber(lowStockProductCount),
       description: "Products below their reorder point",
       icon: AlertTriangle,
       accentClassName: "border-l-status-warning",
