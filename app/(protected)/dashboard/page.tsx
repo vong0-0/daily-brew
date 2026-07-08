@@ -3,10 +3,6 @@ import { DashboardSummaryCardsSkeleton } from "@/components/dashboard/dashboard-
 import { LowStackProductTable } from "@/components/dashboard/low-stack-product-table/table-data";
 import { PageBreadcrumb } from "@/components/shared/page-breadcrumb";
 import { PageHeading } from "@/components/shared/page-heading";
-import {
-  getLowStockProductCount,
-  getStockSummary,
-} from "@/lib/data/product";
 import { Suspense } from "react";
 
 type Props = {

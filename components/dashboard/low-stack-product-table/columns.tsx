@@ -2,8 +2,8 @@
 
 import type { ColumnDef } from "@tanstack/react-table"
 
-import { cn } from "@/lib/utils"
 import { formatNumber, formatUSD } from "@/lib/utils/currency"
+import { formatDateTimeUTC7 } from "@/lib/utils/date"
 import { ActiveStatusBadge } from "@/components/shared/active-status-badge"
 import type { Product } from "@/types/product"
 
@@ -47,6 +47,14 @@ export const lowStockColumns: ColumnDef<Product>[] = [
   {
     accessorKey: "sku",
     header: "SKU",
+  },
+  {
+    accessorKey: "updateAt",
+    header: "Updated At",
+    cell: ({ row }) => {
+      const updateAt = row.getValue("updateAt")
+      return <span className="text-text-secondary">{formatDateTimeUTC7(updateAt as Date)}</span>
+    }
   },
   {
     accessorKey: "isActive",

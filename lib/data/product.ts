@@ -83,7 +83,8 @@ export async function getLowStockProducts(
       p."reorderPoint"::text AS "reorderPoint",
       c."name" AS "categoryName",
       u."name" AS "unitName",
-      p."isActive" AS "isActive"
+      p."isActive" AS "isActive",
+      p."updatedAt" AS "updateAt"
     FROM "products" AS p
     INNER JOIN "categories" AS c ON c."id" = p."categoryId"
     INNER JOIN "units" AS u ON u."id" = p."unitId"
