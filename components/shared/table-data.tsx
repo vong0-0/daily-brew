@@ -7,6 +7,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 
+import { useRouter } from "next/navigation"
 import type { ReactNode } from "react"
 
 import {
@@ -29,6 +30,8 @@ interface DataTableProps<TData, TValue> {
   emptyState?: ReactNode
   /** Optional pagination metadata. If provided, renders the TablePagination component below the table. */
   pagination?: PaginationMeta
+  /** Optional prefix for making table rows clickable links. e.g. "/products" will link to "/products/[id]" */
+  rowLinkPrefix?: string
 }
 
 const defaultEmptyState = (
@@ -44,12 +47,22 @@ export function TableData<TData, TValue>({
   data,
   emptyState = defaultEmptyState,
   pagination,
+  rowLinkPrefix,
 }: DataTableProps<TData, TValue>) {
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel()
   })
+
+  const router = useRouter()
+
+  const handleRowClick = (rowOriginal: TData) => {
+    if (rowLinkPrefix && rowOriginal && typeof rowOriginal === "object" && "id" in rowOriginal) {
+      const identifiable = rowOriginal as { id: string }
+      router.push(`${rowLinkPrefix}/${identifiable.id}`)
+    }
+  }
 
   return (
     <div className="w-full overflow-x-auto border">
@@ -75,7 +88,12 @@ export function TableData<TData, TValue>({
         <TableBody>
           {table.getRowModel().rows?.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+              <TableRow
+                key={row.id}
+                data-state={row.getIsSelected() && "selected"}
+                onClick={() => handleRowClick(row.original)}
+                className={rowLinkPrefix ? "cursor-pointer hover:bg-bg-surface-hover" : ""}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id} className="px-4 py-2">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

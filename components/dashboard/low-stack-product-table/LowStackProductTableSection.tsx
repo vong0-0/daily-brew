@@ -27,7 +27,12 @@ export async function LowStackProductTableSection({ page = 1, search }: LowStack
           <SearchInput placeholder="Search low stock products..." />
         </div>
       </CardHeader>
-      <TableData columns={lowStockColumns} data={products} pagination={productList.pagination} />
+      <TableData
+        columns={lowStockColumns}
+        data={products}
+        pagination={productList.pagination}
+        rowLinkPrefix="/products"
+      />
     </Card>
   )
 }

@@ -37,7 +37,16 @@ export const productTableColumns: ColumnDef<Product>[] = [
   {
     accessorKey: "currentStock",
     header: "Current Stock",
-    cell: ({ row }) => formatNumber(parseFloat(row.getValue("currentStock"))),
+    cell: ({ row }) => {
+      const currentStock = parseFloat(row.getValue("currentStock"))
+      const reorderPoint = parseFloat(row.getValue("reorderPoint"))
+      const isLow = currentStock < reorderPoint
+      return (
+        <span className={isLow ? "text-status-warning font-semibold" : ""}>
+          {formatNumber(currentStock)}
+        </span>
+      )
+    },
   },
   {
     accessorKey: "reorderPoint",

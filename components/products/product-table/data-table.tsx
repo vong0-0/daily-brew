@@ -28,6 +28,7 @@ export async function ProductTable({
       columns={productTableColumns}
       data={productList.items}
       pagination={productList.pagination}
+      rowLinkPrefix="/products"
     />
   )
 }
