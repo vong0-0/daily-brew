@@ -3,8 +3,6 @@ import "./globals.css";
 import { ibmPlexMono, inter } from "./fonts";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-export const dynamic = 'force-dynamic';
-
 export const metadata: Metadata = {
   title: "Daily Brew",
   description: "Coffee shop inventory management system",
