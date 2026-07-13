@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
 import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
   useReactTable,
-} from "@tanstack/react-table"
+} from "@tanstack/react-table";
 
-import { useRouter } from "next/navigation"
-import type { ReactNode } from "react"
+import { useRouter } from "next/navigation";
+import type { MouseEvent, ReactNode } from "react";
 
 import {
   Table,
@@ -17,21 +17,21 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { EmptyState } from "@/components/shared/empty-state"
-import { TablePagination } from "@/components/shared/table-pagination"
-import { DatabaseX } from "lucide-react"
-import type { PaginationMeta } from "@/types/pagination"
+} from "@/components/ui/table";
+import { EmptyState } from "@/components/shared/empty-state";
+import { TablePagination } from "@/components/shared/table-pagination";
+import { DatabaseX } from "lucide-react";
+import type { PaginationMeta } from "@/types/pagination";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[]
-  data: TData[]
+  columns: ColumnDef<TData, TValue>[];
+  data: TData[];
   /** Custom empty state rendered when the table has no rows. Defaults to a generic EmptyState. */
-  emptyState?: ReactNode
+  emptyState?: ReactNode;
   /** Optional pagination metadata. If provided, renders the TablePagination component below the table. */
-  pagination?: PaginationMeta
+  pagination?: PaginationMeta;
   /** Optional prefix for making table rows clickable links. e.g. "/products" will link to "/products/[id]" */
-  rowLinkPrefix?: string
+  rowLinkPrefix?: string;
 }
 
 const defaultEmptyState = (
@@ -40,7 +40,7 @@ const defaultEmptyState = (
     title="No data"
     description="No data found. Please check back later"
   />
-)
+);
 
 export function TableData<TData, TValue>({
   columns,
@@ -52,17 +52,47 @@ export function TableData<TData, TValue>({
   const table = useReactTable({
     data,
     columns,
-    getCoreRowModel: getCoreRowModel()
-  })
+    getCoreRowModel: getCoreRowModel(),
+  });
 
-  const router = useRouter()
+  const router = useRouter();
 
-  const handleRowClick = (rowOriginal: TData) => {
-    if (rowLinkPrefix && rowOriginal && typeof rowOriginal === "object" && "id" in rowOriginal) {
-      const identifiable = rowOriginal as { id: string }
-      router.push(`${rowLinkPrefix}/${identifiable.id}`)
+  const handleRowClick = (
+    event: MouseEvent<HTMLTableRowElement>,
+    rowOriginal: TData,
+  ) => {
+    const target = event.target;
+    console.log(event);
+
+    // Don't navigate if clicking on interactive elements
+    if (
+      target instanceof Element &&
+      target.closest("button, a, input, select, textarea, [role='button']")
+    ) {
+      event.stopPropagation();
+      return;
     }
-  }
+
+    // Don't navigate if the click target is not actually a descendant of this row
+    // (e.g., click on a modal backdrop that might fire this handler)
+    if (
+      target instanceof Element &&
+      event.currentTarget instanceof Element &&
+      !event.currentTarget.contains(target)
+    ) {
+      return;
+    }
+
+    if (
+      rowLinkPrefix &&
+      rowOriginal &&
+      typeof rowOriginal === "object" &&
+      "id" in rowOriginal
+    ) {
+      const identifiable = rowOriginal as { id: string };
+      router.push(`${rowLinkPrefix}/${identifiable.id}`);
+    }
+  };
 
   return (
     <div className="w-full overflow-x-auto border">
@@ -76,11 +106,11 @@ export function TableData<TData, TValue>({
                     {header.isPlaceholder
                       ? null
                       : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
                   </TableHead>
-                )
+                );
               })}
             </TableRow>
           ))}
@@ -91,8 +121,12 @@ export function TableData<TData, TValue>({
               <TableRow
                 key={row.id}
                 data-state={row.getIsSelected() && "selected"}
-                onClick={() => handleRowClick(row.original)}
-                className={rowLinkPrefix ? "cursor-pointer hover:bg-bg-surface-hover" : ""}
+                onClick={(event) => handleRowClick(event, row.original)}
+                className={
+                  rowLinkPrefix
+                    ? "cursor-pointer hover:bg-bg-surface-hover"
+                    : ""
+                }
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id} className="px-4 py-2">
@@ -112,5 +146,5 @@ export function TableData<TData, TValue>({
       </Table>
       {pagination && <TablePagination pagination={pagination} />}
     </div>
-  )
+  );
 }

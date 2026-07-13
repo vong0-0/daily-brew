@@ -1,40 +1,68 @@
 import { PageBreadcrumb } from "@/components/shared/page-breadcrumb";
 import { PageHeading } from "@/components/shared/page-heading";
 import { ProductTable } from "@/components/products/product-table/data-table";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 import { ProductTableFilterBar } from "@/components/products/product-table/product-table-filter";
+import { CreateProductDialog } from "@/components/products/create-product-dialog";
+import { getCategories } from "@/lib/data/category";
+import { getUnits } from "@/lib/data/unit";
+import { isAdmin as checkIsAdmin } from "@/lib/auth";
 import { Suspense } from "react";
 import { FilterBarSkeleton } from "@/components/shared/skeletons/filter-bar-skeleton";
 import { DataTableSkeleton } from "@/components/shared/skeletons/data-table-skeleton";
 import type { ProductStockStatus } from "@/types/product";
+import ProductList from "@/components/products/product-list";
 
 type Props = {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
 
 function getSearchParam(
   searchParams: Record<string, string | string[] | undefined>,
-  key: string
+  key: string,
 ) {
-  const value = searchParams[key]
-  return typeof value === "string" ? value : undefined
+  const value = searchParams[key];
+  return typeof value === "string" ? value : undefined;
 }
 
 function parseStockStatus(value?: string): ProductStockStatus {
   if (value === "normal" || value === "low") {
-    return value
+    return value;
   }
 
-  return "all"
+  return "all";
+}
+
+function parseIsActive(value?: string): boolean | undefined {
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  return undefined;
 }
 
 export default async function ProductListPage({ searchParams }: Props) {
-  const resolvedSearchParams = await searchParams
-  const page = Number.parseInt(getSearchParam(resolvedSearchParams, "page") ?? "1", 10) || 1
-  const search = getSearchParam(resolvedSearchParams, "search")
-  const categoryId = getSearchParam(resolvedSearchParams, "category")
-  const stockStatus = parseStockStatus(getSearchParam(resolvedSearchParams, "stockStatus"))
+  const [resolvedSearchParams, categories, units, isUserAdmin] =
+    await Promise.all([
+      searchParams,
+      getCategories(),
+      getUnits(),
+      checkIsAdmin(),
+    ]);
+  const page =
+    Number.parseInt(getSearchParam(resolvedSearchParams, "page") ?? "1", 10) ||
+    1;
+  const search = getSearchParam(resolvedSearchParams, "search");
+  const categoryId = getSearchParam(resolvedSearchParams, "category");
+  const stockStatus = parseStockStatus(
+    getSearchParam(resolvedSearchParams, "stockStatus"),
+  );
+  const isActive = parseIsActive(
+    getSearchParam(resolvedSearchParams, "isActive"),
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -49,23 +77,22 @@ export default async function ProductListPage({ searchParams }: Props) {
             <ProductTableFilterBar />
           </Suspense>
 
-          <Button className="py-1 bg-sky-800 text-white hover:bg-sky-700">
-            <Plus />
-            Add product
-          </Button>
+          {isUserAdmin && (
+            <CreateProductDialog categories={categories} units={units} />
+          )}
         </div>
 
         {/* Product table */}
         <Suspense fallback={<DataTableSkeleton />}>
-          <ProductTable
+          <ProductList
             page={page}
             search={search}
             categoryId={categoryId}
             stockStatus={stockStatus}
+            isActive={isActive}
           />
         </Suspense>
-
       </div>
     </div>
-  )
+  );
 }

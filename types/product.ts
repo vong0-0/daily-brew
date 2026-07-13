@@ -48,4 +48,5 @@ export type ProductFilters = {
   search?: string,
   categoryId?: string,
   stockStatus?: ProductStockStatus,
+  isActive?: boolean,
 }

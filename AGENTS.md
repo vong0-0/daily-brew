@@ -63,10 +63,6 @@ src/
 - Product/category/reason/user names → store both the FK (normal display) and a snapshot (fallback if the source record is later deactivated).
 - `productId`, `reasonTypeId`, `userId` → always kept as references.
 
-**Master Data, two groups:**
-- Group A (freely editable): Category name, ReasonType — still write an `AuditLog` entry for transparency.
-- Group B (affects calculations — requires a reason + `AuditLog` every time): Product.unit, cost, reorderPoint.
-- Renaming a product to mean a *different* product is not allowed — create a new product and archive the old one instead. Show a warning before saving any name/category edit.
 
 ## 7. Role & Permission Rules
 

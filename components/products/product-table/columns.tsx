@@ -6,71 +6,103 @@ import { formatNumber, formatUSD } from "@/lib/utils/currency"
 import { formatDateTimeUTC7 } from "@/lib/utils/date"
 import { ActiveStatusBadge } from "@/components/shared/active-status-badge"
 import type { Product } from "@/types/product"
+import { EditProductDialog } from "../edit-product-dialog"
+import type { CategoryOption, UnitOption } from "../product-form"
+import { Button } from "@/components/ui/button"
+import { Ban } from "lucide-react"
+import ToggleProductStatus from "../toggle-product-status"
 
-export const productTableColumns: ColumnDef<Product>[] = [
-  {
-    accessorKey: "id",
-    header: "ID",
-  },
-  {
-    accessorKey: "name",
-    header: "Name",
-  },
-  {
-    accessorKey: "cost",
-    header: "Cost",
-    cell: ({ row }) => {
-      const costRaw = row.getValue("cost") as string
-      if (costRaw === "-") return "-"
-      const cost = parseFloat(costRaw)
-      return formatUSD(cost)
+export const getProductTableColumns = (
+  isAdmin: boolean,
+  categories: CategoryOption[],
+  units: UnitOption[]
+): ColumnDef<Product>[] => {
+  const columns: ColumnDef<Product>[] = [
+    {
+      accessorKey: "id",
+      header: "ID",
     },
-  },
-  {
-    accessorKey: "categoryName",
-    header: "Category Name",
-  },
-  {
-    accessorKey: "unitName",
-    header: "Unit Name",
-  },
-  {
-    accessorKey: "currentStock",
-    header: "Current Stock",
-    cell: ({ row }) => {
-      const currentStock = parseFloat(row.getValue("currentStock"))
-      const reorderPoint = parseFloat(row.getValue("reorderPoint"))
-      const isLow = currentStock < reorderPoint
-      return (
-        <span className={isLow ? "text-status-warning font-semibold" : ""}>
-          {formatNumber(currentStock)}
-        </span>
-      )
+    {
+      accessorKey: "name",
+      header: "Name",
     },
-  },
-  {
-    accessorKey: "reorderPoint",
-    header: "Reorder Point",
-    cell: ({ row }) => formatNumber(parseFloat(row.getValue("reorderPoint"))),
-  },
-  {
-    accessorKey: "sku",
-    header: "SKU",
-  },
-  {
-    accessorKey: "updateAt",
-    header: "Updated At",
-    cell: ({ row }) => {
-      const updateAt = row.getValue("updateAt")
-      return <span className="text-text-secondary">{formatDateTimeUTC7(updateAt as Date)}</span>
-    }
-  },
-  {
-    accessorKey: "isActive",
-    header: "Status",
-    cell: ({ row }) => {
-      const isActive = row.getValue("isActive") as boolean
-      return <ActiveStatusBadge isActive={isActive} />
+    {
+      accessorKey: "cost",
+      header: "Cost",
+      cell: ({ row }) => {
+        const costRaw = row.getValue("cost") as string
+        if (costRaw === "-") return "-"
+        const cost = parseFloat(costRaw)
+        return formatUSD(cost)
+      },
     },
-  },
-]
+    {
+      accessorKey: "categoryName",
+      header: "Category Name",
+    },
+    {
+      accessorKey: "unitName",
+      header: "Unit Name",
+    },
+    {
+      accessorKey: "currentStock",
+      header: "Current Stock",
+      cell: ({ row }) => {
+        const currentStock = parseFloat(row.getValue("currentStock"))
+        const reorderPoint = parseFloat(row.getValue("reorderPoint"))
+        const isLow = currentStock < reorderPoint
+        return (
+          <span className={isLow ? "text-status-warning font-semibold" : ""}>
+            {formatNumber(currentStock)}
+          </span>
+        )
+      },
+    },
+    {
+      accessorKey: "reorderPoint",
+      header: "Reorder Point",
+      cell: ({ row }) => formatNumber(parseFloat(row.getValue("reorderPoint"))),
+    },
+    {
+      accessorKey: "sku",
+      header: "SKU",
+    },
+    {
+      accessorKey: "updateAt",
+      header: "Updated At",
+      cell: ({ row }) => {
+        const updateAt = row.getValue("updateAt")
+        return <span className="text-text-secondary">{formatDateTimeUTC7(updateAt as Date)}</span>
+      }
+    },
+    {
+      accessorKey: "isActive",
+      header: "Status",
+      cell: ({ row }) => {
+        const isActive = row.getValue("isActive") as boolean
+        return <ActiveStatusBadge isActive={isActive} />
+      },
+    },
+  ]
+
+  if (isAdmin) {
+    columns.push({
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => {
+        return (
+          <>
+            <EditProductDialog
+              product={row.original}
+              categories={categories}
+              units={units}
+            />
+            <ToggleProductStatus productId={row.original.id} />
+          </>
+        )
+      },
+    })
+  }
+
+  return columns
+}

@@ -1,27 +1,12 @@
-import { getProducts } from "@/lib/data/product"
+"use client"
+
 import { TableData } from "@/components/shared/table-data"
-import { productTableColumns } from "./columns"
-import type { ProductStockStatus } from "@/types/product"
+import { getProductTableColumns } from "./columns"
+import type { ProductList } from "@/types/product"
+import type { CategoryOption, UnitOption } from "../product-form"
 
-type ProductTableProp = {
-  page?: number
-  search?: string
-  categoryId?: string
-  stockStatus?: ProductStockStatus
-}
-
-export async function ProductTable({
-  page = 1,
-  search,
-  categoryId,
-  stockStatus = "all",
-}: ProductTableProp) {
-  const productList = await getProducts({
-    page,
-    search,
-    categoryId,
-    stockStatus,
-  })
+export function ProductTable({ productList, isAdmin, categories, units }: { productList: ProductList, isAdmin: boolean, categories: CategoryOption[], units: UnitOption[] }) {
+  const productTableColumns = getProductTableColumns(isAdmin, categories, units)
 
   return (
     <TableData

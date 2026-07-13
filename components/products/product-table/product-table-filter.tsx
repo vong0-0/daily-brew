@@ -15,12 +15,27 @@ const StockStatusFilterOptions = [
     label: "Low stock",
     value: "low",
   },
-]
+];
+
+const IsActiveFilterOptions = [
+  {
+    label: "All",
+    value: "all",
+  },
+  {
+    label: "Active",
+    value: "true",
+  },
+  {
+    label: "Inactive",
+    value: "false",
+  },
+];
 
 export async function ProductTableFilterBar() {
-  const categories = await getCategories({ status: "active" })
+  const categories = await getCategories({ status: "active" });
   return (
-    <div className="flex max-w-[700px] items-center gap-2">
+    <div className="flex max-w-175 items-center gap-2">
       <SearchInput className="flex-2" />
       <SharedSelect
         className="flex-1"
@@ -39,6 +54,12 @@ export async function ProductTableFilterBar() {
         options={StockStatusFilterOptions}
         placeholder="Filter stock status"
       />
+      <SharedSelect
+        className="flex-1"
+        paramKey="isActive"
+        options={IsActiveFilterOptions}
+        placeholder="Filter status"
+      />
     </div>
-  )
+  );
 }
