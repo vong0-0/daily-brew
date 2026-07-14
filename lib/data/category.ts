@@ -1,21 +1,22 @@
-import prisma from "@/lib/prisma"
+import prisma from "@/lib/prisma";
+import { Category } from "@/types/category";
 
 export type CategoryOption = {
-  id: string
-  name: string
-  isActive: boolean
-}
+  id: string;
+  name: string;
+  isActive: boolean;
+};
 
-export type CategoryStatusFilter = "active" | "inactive" | "all"
+export type CategoryStatusFilter = "active" | "inactive" | "all";
 
 type GetCategoriesParams = {
-  status?: CategoryStatusFilter
-}
+  status?: CategoryStatusFilter;
+};
 
 export async function getCategories(
-  params: GetCategoriesParams = {}
+  params: GetCategoriesParams = {},
 ): Promise<CategoryOption[]> {
-  const status = params.status ?? "active"
+  const status = params.status ?? "active";
 
   return prisma.category.findMany({
     where:
@@ -32,5 +33,21 @@ export async function getCategories(
     orderBy: {
       name: "asc",
     },
-  })
+  });
+}
+
+export async function getCategory(id: string): Promise<Category | null> {
+  if (!id) {
+    return null;
+  }
+
+  const category = await prisma.category.findUnique({
+    where: { id },
+  });
+
+  if (!category) {
+    return null;
+  }
+
+  return category;
 }

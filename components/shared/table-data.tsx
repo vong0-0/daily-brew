@@ -62,7 +62,6 @@ export function TableData<TData, TValue>({
     rowOriginal: TData,
   ) => {
     const target = event.target;
-    console.log(event);
 
     // Don't navigate if clicking on interactive elements
     if (
@@ -95,8 +94,8 @@ export function TableData<TData, TValue>({
   };
 
   return (
-    <div className="w-full overflow-x-auto border">
-      <Table>
+    <>
+      <Table className="border">
         <TableHeader className="bg-bg-surface hover:bg-bg-surface-hover">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -145,6 +144,6 @@ export function TableData<TData, TValue>({
         </TableBody>
       </Table>
       {pagination && <TablePagination pagination={pagination} />}
-    </div>
+    </>
   );
 }

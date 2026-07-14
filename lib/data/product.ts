@@ -3,6 +3,7 @@ import { Prisma } from "@/prisma/generated/prisma/client";
 import prisma from "@/lib/prisma";
 import { isAdmin } from "@/lib/auth";
 import { GLOBAL_DEFAULT_PAGINATION_LIMIT } from "@/lib/constants/pagination";
+import { normalizeSearch, normalizePagination } from "@/lib/utils/normalize";
 import type {
   ProductDetail,
   ProductFilters,
@@ -10,21 +11,6 @@ import type {
   StockSummary,
   Product,
 } from "@/types/product";
-
-function normalizePagination(params?: Pick<ProductFilters, "page" | "limit">) {
-  const page = Math.max(1, Math.floor(params?.page ?? 1));
-  const limit = Math.max(
-    1,
-    Math.floor(params?.limit ?? GLOBAL_DEFAULT_PAGINATION_LIMIT),
-  );
-
-  return { page, limit };
-}
-
-function normalizeSearch(search?: string) {
-  const trimmed = search?.trim();
-  return trimmed ? `%${trimmed}%` : undefined;
-}
 
 function buildProductConditions(
   params: Omit<ProductFilters, "page" | "limit"> = {},
@@ -58,8 +44,6 @@ function buildProductConditions(
     return Prisma.empty;
   }
 
-  console.log(conditions);
-
   return Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
 }
 
@@ -79,7 +63,10 @@ async function getProductCount(
 
 async function getProductRows(params?: ProductFilters) {
   const isUserAdmin = await isAdmin();
-  const { page, limit } = normalizePagination(params);
+  const { page, limit } = normalizePagination(
+    params,
+    GLOBAL_DEFAULT_PAGINATION_LIMIT,
+  );
   const whereClause = buildProductConditions(params);
   const totalCount = await getProductCount(params);
   const totalPages = Math.ceil(totalCount / limit);

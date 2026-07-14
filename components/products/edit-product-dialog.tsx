@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Pencil } from "lucide-react";
 
 import {
@@ -17,15 +17,22 @@ import type {
   CategoryOption,
   UnitOption,
 } from "@/components/products/product-form";
-import type { Product } from "@/types/product";
+import type { Product, ProductDetail } from "@/types/product";
 
 type Props = {
-  product: Product;
+  product: Product | ProductDetail;
   categories: CategoryOption[];
   units: UnitOption[];
+  /** Optional custom trigger element. Defaults to edit (pencil) icon button. */
+  trigger?: ReactNode;
 };
 
-export function EditProductDialog({ product, categories, units }: Props) {
+export function EditProductDialog({
+  product,
+  categories,
+  units,
+  trigger,
+}: Props) {
   const [open, setOpen] = useState(false);
 
   // Map product fields to appropriate form values.
@@ -40,22 +47,25 @@ export function EditProductDialog({ product, categories, units }: Props) {
     reorderPoint: parseFloat(product.reorderPoint) || 0,
   };
 
+  const defaultTrigger = (
+    <Button
+      variant="outline"
+      size="icon-xs"
+      onClick={(e) => {
+        e.stopPropagation();
+        setOpen(true);
+      }}
+      className="border-border hover:bg-bg-surface-hover hover:text-text-primary"
+    >
+      <Pencil className="size-3" />
+      <span className="sr-only">Edit Product</span>
+    </Button>
+  );
+
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon-xs"
-          onClick={(e) => {
-            // Prevent triggering row navigation
-            e.stopPropagation();
-            setOpen(true);
-          }}
-          className="border-border hover:bg-bg-surface-hover hover:text-text-primary"
-        >
-          <Pencil className="size-3" />
-          <span className="sr-only">Edit Product</span>
-        </Button>
+        {trigger || defaultTrigger}
       </AlertDialogTrigger>
 
       <AlertDialogContent

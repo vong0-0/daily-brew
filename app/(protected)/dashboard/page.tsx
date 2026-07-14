@@ -9,22 +9,23 @@ import { DataTableSkeleton } from "@/components/shared/skeletons/data-table-skel
 import { BarChartSkeleton } from "@/components/shared/skeletons/bar-chart-skeleton";
 
 type Props = {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
 
 export default async function DashboardPage(props: Props) {
   const searchParams = await props.searchParams;
-  const page = typeof searchParams.page === "string" ? parseInt(searchParams.page, 10) : 1;
-  const search = typeof searchParams.search === "string" ? searchParams.search : undefined;
+  const page =
+    typeof searchParams.page === "string" ? parseInt(searchParams.page, 10) : 1;
+  const search =
+    typeof searchParams.search === "string" ? searchParams.search : undefined;
   const periodDays = searchParams.periodDays === "7" ? 7 : 30;
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeading title="Dashboard">
-        <PageBreadcrumb items={[{ label: "Dashboard" }]} />
-      </PageHeading>
+      <PageHeading title="Dashboard" />
 
       <div className="content-shell">
+        <PageBreadcrumb items={[{ label: "Dashboard" }]} />
         <Suspense fallback={<DashboardSummaryCardsSkeleton />}>
           <DashboardSummaryCards />
         </Suspense>

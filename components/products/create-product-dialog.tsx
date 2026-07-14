@@ -33,9 +33,7 @@ export function CreateProductDialog({ categories, units }: Props) {
         </Button>
       </AlertDialogTrigger>
 
-      <AlertDialogContent
-        className="max-w-lg! rounded-sm border-border bg-bg-surface p-6 text-text-primary"
-      >
+      <AlertDialogContent className="max-w-lg! rounded-sm border-border bg-bg-surface p-6 text-text-primary">
         <AlertDialogHeader className="place-items-start! text-left! border-b border-border pb-4">
           <AlertDialogTitle className="text-sm font-semibold uppercase tracking-widest text-text-primary">
             Add New Product
@@ -51,20 +49,6 @@ export function CreateProductDialog({ categories, units }: Props) {
           units={units}
           onSuccess={() => setOpen(false)}
         />
-
-        <div className="mt-6 flex justify-end gap-3 border-t border-border pt-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-            }}
-            className="border-border hover:bg-bg-surface-hover"
-          >
-            Cancel
-          </Button>
-        </div>
       </AlertDialogContent>
     </AlertDialog>
   );

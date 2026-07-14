@@ -1,6 +1,4 @@
-import { PageBreadcrumb } from "@/components/shared/page-breadcrumb";
 import { PageHeading } from "@/components/shared/page-heading";
-import { ProductTable } from "@/components/products/product-table/data-table";
 import { ProductTableFilterBar } from "@/components/products/product-table/product-table-filter";
 import { CreateProductDialog } from "@/components/products/create-product-dialog";
 import { getCategories } from "@/lib/data/category";
@@ -66,9 +64,7 @@ export default async function ProductListPage({ searchParams }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeading title="Product list">
-        <PageBreadcrumb items={[{ label: "products" }]} />
-      </PageHeading>
+      <PageHeading title="Product list" />
 
       <div className="content-shell">
         <div className="flex items-center justify-between">
